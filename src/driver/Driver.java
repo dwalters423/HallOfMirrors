@@ -26,9 +26,13 @@ public class Driver {
     private final String filePath = "src/input/MirrorInput.xml";
     
     public Driver ()  {
-        double x, y, m;
-        double b = 0;
-        boolean backwards;
+        
+        ArrayList<Point2D> MirrorBounces = new ArrayList ();
+        double x, y, m;            //X and Y coordinates are used to calculate b (slope)
+        double b = 0;              //The first Y intercept is at 0.
+        boolean backwards = false; //The first movement is forwards (see lines 54-62)
+        double initialLength;      //This is the initial length of the ray.
+        double rayLength = 0;      //The ray magnitude is finite.
         
         try {
             
@@ -46,25 +50,41 @@ public class Driver {
              * and angle calculation.*/           
             Point2D [] lightRay = getInitialLights(XML);
             
-            while (true){
+            /*Get the ray length*/
+            initialLength = getDistance(lightRay);
+            
+            while (rayLength < initialLength){
                 
                 /*Calculate the light slope using (y2 - y1) / (x2 - x1) equation.*/
                 m = ((lightRay[1].getY() - lightRay[0].getY()) / (lightRay[1].getX() - lightRay[0].getX()));
                 
-                /*Solve for y: y = mx + b; */
-                x = (lightRay[0].getX() + 1); //OR MINUS 1!!! TO DO
+                 /*The test for boolean backwards determines if the ray of light will
+                  *move forward (+1) or backwards (-1) on the X axis.*/
+                if (!backwards) {
+                    x = (lightRay[0].getX() + 1); 
+                }
+                else {
+                    x = (lightRay[0].getX() - 1);
+                }
+                /*Solve for y: y = mx + b*/
                 y = (m*x) + b;
+                /*Solve for new y intercept*/
                 b = y - (m*x);
                 
                 //System.out.println(lightRay[0].getX() + ", " + lightRay[0].getY() + "     /// b = "+ b);
                 
                 /*Set the new location of the ray point to check*/
                 lightRay[0].setLocation(x,y);
-
+                
+                /*Checks if light is colliding with any mirror in the list*/
                 for (Line2D mirrorList1 : mirrorList) {
+                    
+                    /*Collision with a mirror, will collide with the mirror closest*/
                     if (isBetween (lightRay[0], mirrorList1)) {
-                        System.out.println ("Mirror at: (" + mirrorList1.getX1() + ", " + mirrorList1.getY1() + ") (" + mirrorList1.getX2() + ", " + mirrorList1.getY2() + ")");
-                        System.out.println ("Light at: (" + lightRay[0].getX() + ", " + lightRay[0].getY() + ")");
+                        
+                        MirrorBounces.add(lightRay[0]);     //Add it to the collection of mirror collisions.
+                        rayLength += getDistance(lightRay); //Keep track of the magnitude of the light ray by adding the current segment.
+                        
                         break; //Stop the current for loop iteration, as no more checks need to be performed.
                     } //end if.
                 } //end for loop
@@ -152,6 +172,25 @@ public class Driver {
         return Points;
     } //end getLight
     
+    private double getDistance(Point2D[] Ray) {
+        
+        /*Initialize variables for readability*/
+        /*Based on distance formula sqrt((x2 - x1)^2 + (y2 - y1)^2)) */
+        
+        double x1 = Ray[0].getX();
+        double y1 = Ray[0].getY();
+        double x2 = Ray[1].getX();
+        double y2 = Ray[1].getY();
+        
+        double xEquation;
+        double yEquation;
+        
+        xEquation = Math.pow((x2 - x1),2);
+        yEquation = Math.pow((y2 - y1),2);
+        
+        return Math.sqrt(xEquation + yEquation);
+    }
+    
     /*Function checks to see if a point (light in this context) falls on a line segment (mirror)*/
     private boolean isBetween (Point2D point, Line2D line){
         
@@ -185,6 +224,15 @@ public class Driver {
             }
         }
         return false;
+    }
+    
+    private double angleOfReflection(double slope, Line2D mirror){
+        double angleOfIncidence;
+        double angleOfReflection;
+        
+        
+        
+        return angleOfReflection;
     }
     
 } //end of Driver class.
