@@ -26,8 +26,9 @@ public class Driver {
     private final String filePath = "src/input/MirrorInput.xml";
     
     public Driver ()  {
-        double lightDirection;
-        double x, y;
+        double x, y, m;
+        double b = 0;
+        boolean backwards;
         
         try {
             
@@ -46,28 +47,27 @@ public class Driver {
             Point2D [] lightRay = getInitialLights(XML);
             
             while (true){
-
+                
                 /*Calculate the light slope using (y2 - y1) / (x2 - x1) equation.*/
-                lightDirection = (lightRay[1].getY() - lightRay[0].getY()) / (lightRay[1].getX() - lightRay[0].getX());
+                m = ((lightRay[1].getY() - lightRay[0].getY()) / (lightRay[1].getX() - lightRay[0].getX()));
                 
-                x = lightRay[0].getX() + 1; //OR MINUS 1!!! TO DO
-                y = y - lightDirection(x);
+                /*Solve for y: y = mx + b; */
+                x = (lightRay[0].getX() + 1); //OR MINUS 1!!! TO DO
+                y = (m*x) + b;
+                b = y - (m*x);
                 
+                //System.out.println(lightRay[0].getX() + ", " + lightRay[0].getY() + "     /// b = "+ b);
+                
+                /*Set the new location of the ray point to check*/
+                lightRay[0].setLocation(x,y);
 
-                lightRay[0].setLocation(lightRay[0].getX(), lightDirection);
-
-                for (int i = 0; i < mirrorList.size(); i++){
-                    if (mirrorList.get(i).contains(lightRay[0])){
-                        System.out.println ("Light ray collided with mirror at point "
-                         + lightRay[0].getX() + ", " + lightRay[0].getY()); //Output the point of intersection.
-                        //Calculate angle incidence
-                        //Set Lights[1].X and Lights[1].Y to arbitray points in distance along slope.
+                for (Line2D mirrorList1 : mirrorList) {
+                    if (isBetween (lightRay[0], mirrorList1)) {
+                        System.out.println ("Mirror at: (" + mirrorList1.getX1() + ", " + mirrorList1.getY1() + ") (" + mirrorList1.getX2() + ", " + mirrorList1.getY2() + ")");
+                        System.out.println ("Light at: (" + lightRay[0].getX() + ", " + lightRay[0].getY() + ")");
                         break; //Stop the current for loop iteration, as no more checks need to be performed.
                     } //end if.
                 } //end for loop
-
-
-
             } //end while
             
             
@@ -77,11 +77,12 @@ public class Driver {
         }
     }
     
+    /*Reads input from the mirrorgroup element in MirrorInput.xml and returns an ArrayList of line segments (mirrors)*/
     private ArrayList<Line2D> populateMirrors(Document XML){
         
         int index;
-        float startPointX, startPointY;
-        float endPointX, endPointY;
+        double startPointX, startPointY;
+        double endPointX, endPointY;
         String startString;
         String endString;
         
@@ -105,7 +106,7 @@ public class Driver {
                 endPointX = Float.parseFloat(endString.substring(0,index)); //Create integer for x value.
                 endPointY = Float.parseFloat(endString.substring(index+1, endString.length())); //Create integer for y value.
                 
-                MirrorList.add(new Line2D.Float(startPointX, startPointY, endPointX, endPointY)); //Add mirror to mirrorlist.
+                MirrorList.add(new Line2D.Double(startPointX, startPointY, endPointX, endPointY)); //Add mirror to mirrorlist.
                                 
                 System.out.print ("Start: (" + startPointX + "," + startPointY + ")"); //TESTING PURPOSES
                 System.out.println ("End: (" + endPointX + "," + endPointY + ")");     //TESTING PURPOSES.
@@ -115,11 +116,14 @@ public class Driver {
         
     } //end populateMirrors
     
+    /*Reads input from the lightgroup element in MirrorInput.xml and returns an array of Point2Ds representing
+     *the light's current position and theoretical finite end point. 
+    */
     private Point2D[] getInitialLights (Document XML) {
         
         int index;
-        float startPointX, startPointY;
-        float endPointX, endPointY;
+        double startPointX, startPointY;
+        double endPointX, endPointY;
         Point2D[] Points = new Point2D[2];
         String startString;
         String endString;
@@ -134,18 +138,53 @@ public class Driver {
         startPointX = Float.parseFloat(startString.substring(0,index)); //Create integer for x value.
         startPointY = Float.parseFloat(startString.substring(index+1, startString.length())); //Create integer for y value.
         
-        Points[0] = new Point2D.Float(startPointX, startPointY);
+        Points[0] = new Point2D.Double(startPointX, startPointY);
 
         index = endString.indexOf(","); //For parsing of string.
         endPointX = Float.parseFloat(endString.substring(0,index));  //Create integer for x value.
         endPointY = Float.parseFloat(endString.substring(index+1, endString.length())); //Create integer for y value.
         
-        Points[1] = new Point2D.Float(endPointX, endPointY);
+        Points[1] = new Point2D.Double(endPointX, endPointY);
 
         System.out.print ("Start: (" + startPointX + "," + startPointY + ")"); //TESTING PURPOSES
         System.out.println ("End: (" + endPointX + "," + endPointY + ")");     //TESTING PURPOSES.
         
         return Points;
     } //end getLight
+    
+    /*Function checks to see if a point (light in this context) falls on a line segment (mirror)*/
+    private boolean isBetween (Point2D point, Line2D line){
+        
+        /*Assign variables for readability where Z variables are the point and
+         * x1,y1,x2,and y2 are the two points that make up the line segment.*/
+        double x1 = line.getX1();
+        double y1 = line.getY1();
+        double x2 = line.getX2();
+        double y2 = line.getY2();
+        double xZ = point.getX();
+        double yZ = point.getY();
+        
+        /*Get cross product of x and y values.*/
+        double xEquation = (xZ - x1) / (x2 - x1);
+        double yEquation = (yZ - y1) / (y2 - y1);
+        
+        /*Check to see if the cross product of both equations is within a 0.05 tolerance.*/
+        /*Tolerance is necessary because the light travels exactly 1 or -1 space on the 
+         *x axis. Tolerance could be adjusted if the x increment was less than 1.*/
+        if(Math.abs(xEquation - yEquation) <= 0.05) {
+            
+            /*Checks to see if values fall within the line segment (mirror).
+             *Since the x and y values are colinear, you can test only 1 set of
+             *variables (x or y). 
+            */
+            if (y2 > y1){
+                return (y1 < yZ) && (yZ < y2);
+            }
+            else {
+                return (y2 < yZ) && (yZ < y1);
+            }
+        }
+        return false;
+    }
     
 } //end of Driver class.
